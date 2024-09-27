@@ -7,11 +7,15 @@ const userRouter = require('./routes/userRoutes');
 const app = express();
 
 //1) middlewares
-app.use(morgan('dev')); //morgan will return function similar to use 
+if(process.env.NODE_ENV === 'development'){
+	app.use(morgan('dev'));
+};
+//morgan will return function similar to use 
 //it show information on the console about the request we did
 
 
 app.use(express.json()); //middleware
+app.use(express.static(`${__dirname}/public`));
 
 app.use((req, res, next) => {
 	console.log('hello from the middleware');
