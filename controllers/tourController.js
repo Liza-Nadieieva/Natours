@@ -4,8 +4,28 @@ const tours = JSON.parse(
 	fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`)
 );
 
+exports.checkId = (req, res, next, val) => {
+	console.log(`req.params : ${req.params.id}`);
+	if(req.params.id * 1 > tours.length) {
+		return res.status(404).json({
+			status: 'fail',
+			message: 'invalid id'
+		});
+	}
+	next();
+}; 
+
+exports.checkBody = (req, res, next) => {
+	if(!req.body.name || !req.body.price){
+		return res.status(400).json({
+			status:'fail',
+			message:'missing name or price'
+		})
+	}
+	next();
+};
+
 exports.getAllTours = (req, res) => {
-	console.log(req.requestTime);
 	res.status(200).json({
 		status: 'success',
 		results: tours.length,
@@ -17,15 +37,8 @@ exports.getAllTours = (req, res) => {
 };
 
 exports.getTour = (req, res) => { //:id? optional
-	const id = req.params.id * 1 // trick to convert to number 
+	const id = req.params.id;
 	const tour = tours.find(el => el.id === id);
-	// if(id > tours.length)
-	if(!tour){ //if tour doesnt find 
-		return res.status(400).json({
-			status: 'fail',
-			message: 'invalid id'
-		})
-	}
 	res.status(200).json({
 		status: 'success',
 		data: {
@@ -53,13 +66,6 @@ exports.createTour = (req, res) => {
 };
 
 exports.updateTour = (req, res) => { 
-	const id = req.params.id * 1 // trick to convert to number 
-	if(id > tours.length) {
-		return res.status(400).json({
-			status: 'fail',
-			message: 'invalid id'
-		})
-	}
 	res.status(200).json({
 		status: 'success',
 		data: {
@@ -69,13 +75,6 @@ exports.updateTour = (req, res) => {
 };
 
 exports.deleteTour = (req, res) => { 
-	const id = req.params.id * 1 // trick to convert to number 
-	if(id > tours.length) {
-		return res.status(400).json({
-			status: 'fail',
-			message: 'invalid id'
-		})
-	}
 	res.status(204).json({
 		status: 'success',
 		data: null
