@@ -10,7 +10,7 @@ const { getAllTours,
 const router = express.Router(); //middleware
 
 //Middleware function
-router.param('id', checkId);
+// router.param('id', checkId);
 
 //create a checkBody middleware
 //check if body containes the name and price property
