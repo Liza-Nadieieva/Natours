@@ -5,7 +5,9 @@ const { getAllTours,
 		updateTour,
 		deleteTour,
 		checkId,
-		aliasTopTours
+		aliasTopTours,
+		getTourStats,
+		getMonthlyPlan
 	} = require('../controllers/tourController');
 const router = express.Router(); //middleware
 
@@ -16,7 +18,9 @@ const router = express.Router(); //middleware
 //check if body containes the name and price property
 //if not, send back  400 (bad request)
 //add it to the post handler stack
-router.route('/top-5-cheap').get(aliasTopTours, getAllTours)
+router.route('/top-5-cheap').get(aliasTopTours, getAllTours);
+router.route('/tour-stats').get(getTourStats);
+router.route('/monthly-plan/:year').get(getMonthlyPlan);
 
 router
 	.route('/')
