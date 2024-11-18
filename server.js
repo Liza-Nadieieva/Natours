@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 const dotenv = require("dotenv");
 
-process.on('uncaughtException', err => {
-	console.log(err.name, err.message);
-	console.log('UNCAUGHT EXCEPTION Shutiting down..');
-	process.exit(1); 
-});
+// process.on('uncaughtException', err => {
+// 	console.log(err.name, err.message);
+// 	console.log('UNCAUGHT EXCEPTION Shutiting down..');
+// 	process.exit(1); 
+// });
 
 dotenv.config({ path: "./config.env" });
 
@@ -19,9 +19,9 @@ mongoose
 	.then(con => {
 		console.log('DB conncection successful!');
 	})
-	// .catch((error) => {
-    // 	console.error('Error connecting to MongoDB:', error);
-	// });
+	.catch((error) => {
+    	console.error('Error connecting to MongoDB:', error);
+	});
 
 
 const app = require("./app");

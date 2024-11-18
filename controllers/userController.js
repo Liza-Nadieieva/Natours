@@ -28,7 +28,10 @@ exports.createUser = (req, res) => {
 };
 
 exports.getUser = (req, res) => {
-	const id = req.params.id * 1 // trick to convert to number 
+	// const userId = mongoose.Types.ObjectId(req.params.id);
+	console.log(id)
+	const id = req.params.id * 1;
+
 	const user = users.find(el => el.id === id);
 	// if(id > tours.length)
 	if(!user){ //if tour doesnt find 
