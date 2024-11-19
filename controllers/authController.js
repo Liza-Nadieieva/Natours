@@ -16,8 +16,9 @@ exports.signup = catchAsync(async (req, res, next) => {
 		name: req.body.name,
 		email: req.body.email,
 		password: req.body.password,
-		passwordConfirm: req.body.passwordConfirm
-	});
+		passwordConfirm: req.body.passwordConfirm,
+		role: req.body.role
+	})
 
 	const token = signToken(newUser._id);
 
@@ -69,18 +70,28 @@ exports.protect = catchAsync(async (req, res, next) => {
 	//const decoded = await promisify(jwt.verify(token, process.env.JWT_SECRET));
 
 	//3) check if user still exists
-	const freshUser = await User.findById(decoded.id);
-	if(!freshUser) {
+	const currentUser = await User.findById(decoded.id);
+	if(!currentUser) {
 		return next(new AppError('The user belonging to this token does no longer exist', 401))
 	}
 
 	//4) check if user changed password after the token was issued
-	if(freshUser.changedPasswordAfter(decoded.iat)) {
+	if(currentUser.changedPasswordAfter(decoded.iat)) {
 		return next(new AppError('User recently changed the password. Please log in again', 401))
 	};
 
 	//Grant access to protected route
-	req.user = freshUser;
+	req.user = currentUser;
 	next();
 
 });
+
+exports.restrictTo = (...roles) => {
+	return (req, res, next) => {
+		//roles ['admin', 'lead-guide']. role ='user'
+		if(!roles.includes(req.user.role)){
+			return next(new AppError('You do not have permission to perform this action', 403))
+		}
+		next();
+	};
+};
