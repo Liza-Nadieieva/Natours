@@ -29,7 +29,6 @@ exports.createUser = (req, res) => {
 
 exports.getUser = (req, res) => {
 	// const userId = mongoose.Types.ObjectId(req.params.id);
-	console.log(id)
 	const id = req.params.id * 1;
 
 	const user = users.find(el => el.id === id);
