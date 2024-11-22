@@ -2,8 +2,6 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
-const moment = require('moment');  
-
 
 const userSchema = new mongoose.Schema({
 	name: {
@@ -41,14 +39,7 @@ const userSchema = new mongoose.Schema({
 		}
 	},
 	passwordChangeAt: {
-	    type: Date,
-	    set: function(value) {
-			// If a string is provided, parse it into a date using moment
-			if (typeof value === 'string') {
-			return moment(value, 'YYYY-MM-DD').toDate(); // Parse 'YYYY-MM-DD' format and convert to a Date object
-			}
-			return value; // If it's already a Date, return it as is
-		}
+	    type: Date
     },
 	passwordResetToken: String,
 	passwordResetExpires: Date

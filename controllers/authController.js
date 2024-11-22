@@ -19,11 +19,8 @@ exports.signup = catchAsync(async (req, res, next) => {
 		name: req.body.name,
 		email: req.body.email,
 		password: req.body.password,
-		passwordConfirm: req.body.passwordConfirm,
-		role: req.body.role,
-		passwordResetToken: req.body.passwordResetToken
+		passwordConfirm: req.body.passwordConfirm
 	})
-	// console.log('newUser', newUser);
 
 	const token = signToken(newUser._id);
 
@@ -70,8 +67,10 @@ exports.protect = catchAsync(async (req, res, next) => {
 	}
 
 	// //2) Verification token
-	const verifyAsync = promisify(jwt.verify);
-	const decoded = await verifyAsync(token, process.env.JWT_SECRET);
+	// const verifyAsync = promisify(jwt.verify);
+	// const decoded = await verifyAsync(token, process.env.JWT_SECRET);
+	const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
 	// const decoded = await jwt.verifyAsync(token, process.env.JWT_SECRET);
 	//const decoded = await promisify(jwt.verify(token, process.env.JWT_SECRET));
 
@@ -105,14 +104,14 @@ exports.restrictTo = (...roles) => {
 exports.forgotPassword = catchAsync( async(req, res, next) => {
 	//1) get user based on POSTed email
 	const user = await User.findOne({ email: req.body.email });
-	console.log(user)
 	if(!user) {
 		return next(new AppError('There is no user with email address.', 404))
 	}
 
-	//2) generate the random token 
+	//2) generate the random reset token 
 	const resetToken = user.createPasswordResetToken();
 	console.log('resettoken', resetToken);
+	await user.save({ validateBeforeSave: false });
 
 	//3) Send it to user's email
 	console.log('Protocol:', req.protocol);
@@ -122,6 +121,7 @@ exports.forgotPassword = catchAsync( async(req, res, next) => {
 
 	const message = `Forgot your password? Submit a PATCH requests with your new 
 	password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
+	
 	try{
 		await sendEmail({
 			email: user.email,
@@ -143,7 +143,6 @@ exports.forgotPassword = catchAsync( async(req, res, next) => {
 		return next(new AppError('There was an error sendig the email. Try again letter', 500))
 
 	}
-	
 });
 
 exports.resetPassword = catchAsync(async (req, res, next) => {
@@ -156,8 +155,6 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 	console.log("Hashed token:", hashedToken);
 	console.log("Raw token from request:", req.params.token);
 
-
-
 	const user = await User.findOne({ 
 		passwordResetToken: hashedToken,
 		passwordResetExpires: {$gt: Date.now()} 
@@ -165,10 +162,10 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 
 	console.log('user', user);
 
-	// if token hs not expired, and ther is user, set the new password
 	if(!user){
 		return next(new AppError('Token is invalid or has expired', 400))
 	}
+	// if token hs not expired, and ther is user, set the new password
 	user.password = req.body.password;
 	user.passwordConfirm = req.body.passwordConfirm;
 	user.passwordResetToken = undefined;
