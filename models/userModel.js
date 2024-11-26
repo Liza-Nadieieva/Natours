@@ -1,3 +1,4 @@
+// const moment = require('moment');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const validator = require('validator');
@@ -64,7 +65,16 @@ userSchema.pre('save', async function(next) {
 
 
 	next();
-})
+});
+
+userSchema.pre('save', async function(next) {
+	if (!this.isModified('password') || this.isNew) return next();
+
+	this.passwordChangeAt = Date.now() - 1000;
+	next();
+});
+
+
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
 	return await  bcrypt.compare(candidatePassword, userPassword);
 };
@@ -81,14 +91,14 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
 	return false;
 };
 
-userSchema.methods.toJSON = function () {
-  	const user = this.toObject();
-  	// Format the passwordChangeAt date when returning it to the client (optional)
-  	if (user.passwordChangeAt) {
-		user.passwordChangeAt = moment(user.passwordChangeAt).format('YYYY-MM-DD');
-	}
-	return user;
-};
+// userSchema.methods.toJSON = function () {
+//   	const user = this.toObject();
+//   	// Format the passwordChangeAt date when returning it to the client (optional)
+//   	if (user.passwordChangeAt) {
+// 		user.passwordChangeAt = moment(user.passwordChangeAt).format('YYYY-MM-DD');
+// 	}
+// 	return user;
+// };
 
 userSchema.methods.createPasswordResetToken = function() {
 	const resetToken = crypto.randomBytes(32).toString('hex'); 
@@ -98,6 +108,7 @@ userSchema.methods.createPasswordResetToken = function() {
 		.update(resetToken)
 		.digest('hex');
 		console.log({resetToken}, this.passwordResetToken);
+
 	this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
 	return resetToken;
