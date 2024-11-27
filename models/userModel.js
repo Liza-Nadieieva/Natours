@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema({
 //before
 userSchema.pre(/^find/, function(next){
 	//this points to the current query
-	this.find({ active: {$ne: false} });
+	this.find({ active: {$ne: false} }); //all user who not false 
 	next();
 });
 
