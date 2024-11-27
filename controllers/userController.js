@@ -16,7 +16,8 @@ const filterObj = (obj, ...allowedFields) => {
 
 exports.getAllUsers = catchAsync(async (req, res ,next) => {
 
-	const users = await User.find;
+	const users = await User.find();
+	
 	//SEND RESPONSE
 	res.status(200).json({
 		status: 'success',
@@ -32,7 +33,7 @@ exports.updateCurrentUser = catchAsync(async (req, res, next) => {
 	if(req.body. password || req.body.passwordConfirm){
 		return next(new AppError('This route is not for password updates. Please use /updateMyPassword', 400))
 	}
-	//filtered out unwanted fields names that are not allowed
+	//filtered out unwanted fields names that are not allowed to be updated
 	const filteredBody = filterObj(req.body, 'name', 'email');
 	//update user document
 
@@ -42,11 +43,19 @@ exports.updateCurrentUser = catchAsync(async (req, res, next) => {
 	});
 
 	res.status(200).json({
-		status: "succes",
+		status: "success",
 		data: {
 			user: updateUser
 		}
 	});
+});
+
+exports.deleteCurrentUser = catchAsync(async (req, res, next) => {
+	await User.findByIdAndUpdate(req.user.id, { active: false });
+	res.status(204).json({
+		status: "success",
+		data: null
+	})
 });
 
 exports.createUser = (req, res) => {
