@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
+const { authenticator, totp } = require('otplib');
 const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
@@ -8,7 +9,7 @@ const sendEmail = require('./../utils/email');
 
 const signToken = id => {
 	return jwt.sign({ id }, process.env.JWT_SECRET, {
-		expiresIn: process.env.JWT_EXPIRES_IN
+		expiresIn: process.env.JWT_EXPIRES_IN || '1h'
 	});
 };
 
@@ -20,7 +21,7 @@ const createSendToken = (user, statusCode, res) => {
 		),
 		httpOnly: true
 	};
-	if (process.env.NODE_ENV === 'production') cookieOption.secure = true;
+	if (process.env.NODE_ENV === 'production') cookieOption.secure = true; // Only send cookie over HTTPS in production
 
 	res.cookie('jwt', token, cookieOption);
 	//remove password from output
@@ -35,36 +36,122 @@ const createSendToken = (user, statusCode, res) => {
 	});
 };
 
+const verifyTotpCode = (totpCode, totpSecret) => {
+	try {
+		const isValid = authenticator.verify({
+		  token: totpCode,
+		  secret: totpSecret,
+		  window: 1 
+		});
+		console.log(`Verification result: ${isValid}`);
+		return isValid;
+	  } catch (error) {
+		console.error('Error verifying TOTP code:', error);
+		return false;
+	  }
+};
+
+exports.verify2FA = catchAsync(async (req, res, next) => {
+	const { tempToken, totpCode } = req.body;
+	console.log("totpCode", totpCode)
+	console.log("tempToken", tempToken)
+	// 1) Check if both the temporary token and 2FA code are provided
+	if (!tempToken || !totpCode) {
+		return next(new AppError('Please provide both temporary token and 2FA code', 400));
+	}
+	
+	//1) verify the temporary JWT
+	const decoded = await promisify(jwt.verify)(tempToken, process.env.JWT_SECRET);
+
+	if (!decoded) {
+	  return next(new AppError('Invalid or expired token. Please log in again.', 401));
+	}
+
+	// 2) find the user based on the decoded token's payload
+	const user = await User.findById(decoded.id);
+
+	console.log(user);
+	console.log(user.twoFactorEnabled);
+	console.log(user.totpSecret);
+
+	if (!user || !user.twoFactorEnabled || !user.totpSecret) {
+	  return next(new AppError('User not found or 2FA not enabled', 404));
+	}
+	// 3) verify the TOTP code using otplib
+	console.log("Stored totpSecret:", user.totpSecret);
+	
+	verifyTotpCode(totpCode, user.totpSecret);
+
+	// if (!isValid) {
+	//   return next(new AppError('Invalid TOTP code', 401));
+	// }
+  
+  
+
+	createSendToken(user, 200, res);
+});
+
 exports.signup = catchAsync(async (req, res, next) => {
-	const newUser = await User.create(req.body); //User.save updating
-	// console.log('newuser', newUser.passwordResetToken);
+	let totpSecret = null;
+	if (req.body.twoFactorEnabled) {
+		  	// Generate a new secret for 2FA
+			const timeStep = authenticator.timeUsed();
+			console.log('Current time step:', timeStep);
+			console.log('Server time:', Date.now());
+			totpSecret = 'GV5SGAQDEZCVWMTD';
+		 	const totpCode = authenticator.generate(totpSecret);
+		 	// Optionally generate a TOTP code for testing the secret (not required for user creation)
+		 	 console.log('Generated TOTP Code (for testing):', totpCode); // This is for testing only
+	}
+
+	const newUser = await User.create({
+       ...req.body,
+	   twoFactorEnabled: req.body.twoFactorEnabled,
+	   totpSecret
+    });; //User.save updating
+	
 	// const newUser = await User.create({
 	// 	name: req.body.name,
 	// 	email: req.body.email,
 	// 	password: req.body.password,
 	// 	passwordConfirm: req.body.passwordConfirm
 	// })
-
+	// If the user enabled 2FA, generate the secret
 	createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-	const { email ,password } = req.body;
-
-	//1) Check if email and password exist
-	if(!email  || !password) {
-		return next(new AppError('Please provide email and password', 400));
+	const { email, password } = req.body;
+  
+	// 1) Check if email and password are provided
+	if (!email || !password) {
+	  return next(new AppError('Please provide email and password', 400));
 	}
-	//2) Check if user exists && password is correct 
-	const user = await User.findOne({ email }).select('+password');  //email: email
+  
+	// 2) Retrieve user and check password
+	const user = await User.findOne({ email }).select('+password'); // Explicitly include password for comparison
+  
+	if (!user || !(await user.correctPassword(password, user.password))) {
+	  return next(new AppError('Incorrect email or password', 401));
+	}
+	 // 3) If 2FA is enabled, issue a temporary token for 2FA verification
+	 if (user.twoFactorEnabled) {
+        // 3A) Issue a temporary JWT (short-lived) for 2FA verification
+        const tempToken = jwt.sign(
+            { id: user._id }, // Payload contains user ID
+            process.env.JWT_SECRET, // Secret key
+            { expiresIn: '5m' } // Short expiration for security
+        );
 
-	if(!user || !(await user.correctPassword(password, user.password))){
-		return next(new AppError('Incorrect email or password', 401));
-	} 
-
-	//3) if everything okay, send token to client
+        // 3B) Respond with the temporary token for 2FA verification
+        return res.status(200).json({
+            message: '2FA required. Please verify using your authenticator app.',
+            tempToken, // Send this tempToken for the user to verify 2FA
+    	});
+	}
+	// 4) If 2FA is not enabled, issue a full session JWT
 	createSendToken(user, 200, res);
-});
+  });
 
 exports.protect = catchAsync(async (req, res, next) => {
 	//1) getting token and check of it's there 
