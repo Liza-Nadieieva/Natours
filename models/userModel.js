@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
+const totp = require('otplib');
 
 const userSchema = new mongoose.Schema({
 	name: {
@@ -14,7 +15,7 @@ const userSchema = new mongoose.Schema({
 		required: [true, 'Please provide your email'],
 		unique: true,
 		lowercase: true,
-		validate: [validator.isEmail, 'Please provide a valid name']
+		validate: [validator.isEmail, 'Please provide a valid email']
 	},
 	photo: String,
 	role: {
@@ -48,8 +49,13 @@ const userSchema = new mongoose.Schema({
 		type: Boolean,
 		default: true,
 		select: false
-	}
+	},
+	twoFactorEnabled: { type: Boolean, default: false },
+	totpSecret: {
+		type: String, 
+	},
 });
+
 //before
 userSchema.pre(/^find/, function(next){
 	//this points to the current query
