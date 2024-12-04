@@ -38,76 +38,71 @@ const createSendToken = (user, statusCode, res) => {
 
 const verifyTotpCode = (totpCode, totpSecret) => {
 	try {
-		const isValid = authenticator.verify({
-		  token: totpCode,
-		  secret: totpSecret,
-		  window: 1 
-		});
-		console.log(`Verification result: ${isValid}`);
-		return isValid;
-	  } catch (error) {
-		console.error('Error verifying TOTP code:', error);
-		return false;
-	  }
-};
+	  console.log('Expected TOTP (server-side):', authenticator.generate(totpSecret));
+	  console.log('Received TOTP (client-side):', totpCode);
+  
+	  const isValid = authenticator.verify({
+		token: totpCode,
+		secret: totpSecret,
+		window: 1, 
+	  });
+	  console.log(`Verification result: ${isValid}`);
+	  return isValid;
+	} catch (error) {
+	  console.error('Error verifying TOTP code:', error);
+	  return false;
+	}
+  };
 
-exports.verify2FA = catchAsync(async (req, res, next) => {
+  exports.verify2FA = catchAsync(async (req, res, next) => {
 	const { tempToken, totpCode } = req.body;
-	console.log("totpCode", totpCode)
-	console.log("tempToken", tempToken)
+
 	// 1) Check if both the temporary token and 2FA code are provided
 	if (!tempToken || !totpCode) {
-		return next(new AppError('Please provide both temporary token and 2FA code', 400));
+	  return next(new AppError('Please provide both temporary token and 2FA code', 400));
 	}
-	
-	//1) verify the temporary JWT
+  
+	//2) verify the temporary JWT
 	const decoded = await promisify(jwt.verify)(tempToken, process.env.JWT_SECRET);
-
+  
 	if (!decoded) {
 	  return next(new AppError('Invalid or expired token. Please log in again.', 401));
 	}
-
-	// 2) find the user based on the decoded token's payload
+  
+	//3) find the user based on the decoded token's payload
 	const user = await User.findById(decoded.id);
-
-	console.log(user);
-	console.log(user.twoFactorEnabled);
-	console.log(user.totpSecret);
-
+  
 	if (!user || !user.twoFactorEnabled || !user.totpSecret) {
 	  return next(new AppError('User not found or 2FA not enabled', 404));
 	}
-	// 3) verify the TOTP code using otplib
-	console.log("Stored totpSecret:", user.totpSecret);
-	
-	verifyTotpCode(totpCode, user.totpSecret);
-
-	// if (!isValid) {
-	//   return next(new AppError('Invalid TOTP code', 401));
-	// }
   
+	console.log('User found:', user);
+	console.log('Stored TOTP Secret:', user.totpSecret);
   
-
+	// 4) verify the TOTP code using otplib
+	const isValid = verifyTotpCode(totpCode, user.totpSecret);
+  
+	if (!isValid) {
+	  return next(new AppError('Invalid TOTP code', 401));
+	}
+  
 	createSendToken(user, 200, res);
-});
+  });
 
 exports.signup = catchAsync(async (req, res, next) => {
 	let totpSecret = null;
 	if (req.body.twoFactorEnabled) {
-		  	// Generate a new secret for 2FA
-			const timeStep = authenticator.timeUsed();
-			console.log('Current time step:', timeStep);
-			console.log('Server time:', Date.now());
-			totpSecret = 'GV5SGAQDEZCVWMTD';
-		 	const totpCode = authenticator.generate(totpSecret);
-		 	// Optionally generate a TOTP code for testing the secret (not required for user creation)
-		 	 console.log('Generated TOTP Code (for testing):', totpCode); // This is for testing only
+		// // Generate a new secret for 2FA
+		// totpSecret = 'GV5SGAQDEZCVWMTD'; //manual
+		totpSecret = authenticator.generateSecret();
+		const totpCode = authenticator.generate(totpSecret);
+		console.log('Generated TOTP Secret:', totpSecret);
+		console.log('Generated TOTP Code (for testing):', totpCode);
 	}
-
 	const newUser = await User.create({
        ...req.body,
 	   twoFactorEnabled: req.body.twoFactorEnabled,
-	   totpSecret
+	   totpSecret,
     });; //User.save updating
 	
 	// const newUser = await User.create({
@@ -116,6 +111,7 @@ exports.signup = catchAsync(async (req, res, next) => {
 	// 	password: req.body.password,
 	// 	passwordConfirm: req.body.passwordConfirm
 	// })
+	
 	// If the user enabled 2FA, generate the secret
 	createSendToken(newUser, 201, res);
 });
