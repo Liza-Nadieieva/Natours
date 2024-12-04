@@ -100,6 +100,7 @@ exports.signup = catchAsync(async (req, res, next) => {
 			console.log('Server time:', Date.now());
 			totpSecret = 'GV5SGAQDEZCVWMTD';
 		 	const totpCode = authenticator.generate(totpSecret);
+			
 		 	// Optionally generate a TOTP code for testing the secret (not required for user creation)
 		 	 console.log('Generated TOTP Code (for testing):', totpCode); // This is for testing only
 	}
