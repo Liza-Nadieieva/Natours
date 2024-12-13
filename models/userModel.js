@@ -29,6 +29,8 @@ const userSchema = new mongoose.Schema({
 		minlength: 8,
 		select: false //never show in output
 	},
+	loginAttempts: { type: Number, default: 0 },
+  	lockUntil: { type: Date, default: null }, // Timestamp for lockout duration
 	passwordConfirm: {
 		type: String,
 		required: [true, 'Please confirm your password'],
@@ -54,6 +56,10 @@ const userSchema = new mongoose.Schema({
 	totpSecret: {
 		type: String, 
 	},
+});
+
+userSchema.virtual('isLocked').get(function() {
+	return this.lockUntil && this.lockUntil > Date.now();
 });
 
 //before

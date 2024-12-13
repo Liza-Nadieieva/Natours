@@ -7,6 +7,18 @@ const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
 
+// const checkLock = catchAsync(async(req, res, next) => {
+// 	const { username } = req.body;
+// 	if (!username) {
+// 	  return next(new AppError('Username is required', 400));
+// 	}
+// 	const user = await User.findOne({ username });
+// 	if (user && user.isLocked) {
+// 	  return next(new AppError('Account is locked. Try again later.', 403));
+// 	}
+// 	next();
+// });
+
 const signToken = id => {
 	return jwt.sign({ id }, process.env.JWT_SECRET, {
 		expiresIn: process.env.JWT_EXPIRES_IN || '1h'
@@ -118,6 +130,8 @@ exports.signup = catchAsync(async (req, res, next) => {
 
 exports.login = catchAsync(async (req, res, next) => {
 	const { email, password } = req.body;
+	const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
+
   
 	// 1) Check if email and password are provided
 	if (!email || !password) {
@@ -126,12 +140,30 @@ exports.login = catchAsync(async (req, res, next) => {
   
 	// 2) Retrieve user and check password
 	const user = await User.findOne({ email }).select('+password'); // Explicitly include password for comparison
+
+	// Check if the account is locked
+	if (user.lockUntil && user.lockUntil > Date.now()) {
+		return next(new AppError('Account is locked. Try again later.', 403));
+	}
   
 	if (!user || !(await user.correctPassword(password, user.password))) {
-	  return next(new AppError('Incorrect email or password', 401));
+		user.loginAttempts += 1;
+		console.log(user.loginAttempts);
+		// Lock account if maximum attempts exceeded
+		if (user.loginAttempts >= process.env.MAX_ATTEMPTS) {
+			user.lockUntil = new Date(Date.now() + LOCK_TIME); // Set lockout time
+		}
+		await user.save();
+
+	  	return next(new AppError('Incorrect email or password', 401));
 	}
+	// 4) Reset login attempts on successful login
+	user.loginAttempts = 0;
+	user.lockUntil = null;
+	await user.save();
+
 	 // 3) If 2FA is enabled, issue a temporary token for 2FA verification
-	 if (user.twoFactorEnabled) {
+	if (user.twoFactorEnabled) {
         // 3A) Issue a temporary JWT (short-lived) for 2FA verification
         const tempToken = jwt.sign(
             { id: user._id }, // Payload contains user ID
