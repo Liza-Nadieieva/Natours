@@ -9,41 +9,6 @@ const sendEmail = require('./../utils/email');
 
 const MAX_ATTEMPTS = 5; // Maximum number of login attempts allowed
 const LOCK_TIME = 15 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
-
-exports.checkLock = catchAsync(async (req, res, next) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return next(new AppError('Email is required', 400));
-  }
-
-  // Find the user by email
-  const user = await User.findOne({ email });
-
-  if (!user) {
-    return next(new AppError('No user found with that email', 404));
-  }
-
-  // Check if the account is locked
-  if (user.lockUntil && user.lockUntil > Date.now()) {
-    const remainingLockTime = (user.lockUntil - Date.now()) / 1000; // in seconds
-    return next(
-      new AppError(
-        `Account is locked. Try again in ${Math.ceil(remainingLockTime)} seconds.`,
-        403
-      )
-    );
-  }
-
-  // Reset loginAttempts and lockUntil if lock period has passed
-  if (user.lockUntil && user.lockUntil <= Date.now()) {
-    user.loginAttempts = 0;
-    user.lockUntil = undefined;
-    await user.save();
-  }
-
-  next();
-});
   
 
 const signToken = id => {
@@ -139,39 +104,70 @@ exports.signup = catchAsync(async (req, res, next) => {
 		console.log('Generated TOTP Code (for testing):', totpCode);
 	}
 	const newUser = await User.create({
-       ...req.body,
+    //    ...req.body,
 	   twoFactorEnabled: req.body.twoFactorEnabled,
 	   totpSecret,
+	   name: req.body.name,
+	   email: req.body.email,
+	   password: req.body.password,
+	   passwordConfirm: req.body.passwordConfirm
     });; //User.save updating
-	
-	// const newUser = await User.create({
-	// 	name: req.body.name,
-	// 	email: req.body.email,
-	// 	password: req.body.password,
-	// 	passwordConfirm: req.body.passwordConfirm
-	// })
-	
 	// If the user enabled 2FA, generate the secret
 	createSendToken(newUser, 201, res);
 });
 
+
 exports.login = catchAsync(async (req, res, next) => {
 	const { email, password } = req.body;
-
   
-	// 1) Check if email and password are provided
+	// 1) Check if email and password exist
 	if (!email || !password) {
-	  return next(new AppError('Please provide email and password', 400));
+	  return next(new AppError('Please provide email and password!', 400));
 	}
+	// 2) Check if user exists && password is correct
+	const user = await User.findOne({ email }).select('+password');
   
-	// 2) Retrieve user and check password
-	const user = await User.findOne({ email }).select('+password'); // Explicitly include password for comparison
-
-	// Check if user exists
 	if (!user || !(await user.correctPassword(password, user.password))) {
-		return next(new AppError('Incorrect email or password', 401)); // You can customize this message
+		console.log('Before update: userAttempts', user.loginAttempts);
+
+    // Increment loginAttempts using findOneAndUpdate
+    const updatedUser = await User.findOneAndUpdate(
+      { email },
+      {
+        $inc: { loginAttempts: 1 }, // Increment loginAttempts
+      },
+      { new: true } // Return the updated user
+    );
+
+    // Check if loginAttempts exceeded MAX_ATTEMPTS
+    if (updatedUser.loginAttempts >= MAX_ATTEMPTS) {
+      updatedUser.lockUntil = Date.now() + LOCK_TIME; // Lock the account
+     // Save with validate: false to avoid triggering the passwordConfirm validation
+		 await User.findOneAndUpdate(
+			{ email },
+			{ lockUntil: updatedUser.lockUntil },
+			{ new: true, validate: false } 
+		); 
+      console.log('Account is locked:', updatedUser.lockUntil);
+      return next(
+        new AppError(
+          `Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
+          403
+        )
+      );
+    }
+		console.log('After update: userAttempts', updatedUser.loginAttempts);
+	  return next(new AppError('Incorrect email or password', 401));
 	}
-	 // 3) If 2FA is enabled, issue a temporary token for 2FA verification
+	// Reset loginAttempts and lockUntil on successful login
+	await User.findOneAndUpdate(
+		{ email }, // Find the user by email
+		{
+			$set: { loginAttempts: 0, lockUntil: undefined }, // Reset loginAttempts and lockUntil
+		},
+		{ new: true, validate: false } // Skip validation while updating
+	);
+	//3) If 2FA is enabled, issue a temporary token for 2FA verification
 	if (user.twoFactorEnabled) {
         // 3A) Issue a temporary JWT (short-lived) for 2FA verification
         const tempToken = jwt.sign(
@@ -186,9 +182,9 @@ exports.login = catchAsync(async (req, res, next) => {
             tempToken, // Send this tempToken for the user to verify 2FA
     	});
 	}
-	// 4) If 2FA is not enabled, issue a full session JWT
+	// 4) If everything ok, send token to client
 	createSendToken(user, 200, res);
-  });
+});
 
 exports.protect = catchAsync(async (req, res, next) => {
 	//1) getting token and check of it's there 

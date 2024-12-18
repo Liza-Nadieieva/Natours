@@ -36,8 +36,11 @@ const userSchema = new mongoose.Schema({
 		required: [true, 'Please confirm your password'],
 		validate: {
 			//this only works on Create and Save //post and patch
-			validator: function(el) {
-				return el === this.password; //boolean
+			// validator: function(el) {
+			// 	return el === this.password; //boolean
+			// },
+			validator: function (el) {
+				return this.isModified('password') ? el === this.password : true;
 			},
 			message: 'Passwords are not the same'
 		}
@@ -58,10 +61,6 @@ const userSchema = new mongoose.Schema({
 	},
 });
 
-userSchema.virtual('isLocked').get(function() {
-	return this.lockUntil && this.lockUntil > Date.now();
-});
-
 //before
 userSchema.pre(/^find/, function(next){
 	//this points to the current query
@@ -72,20 +71,11 @@ userSchema.pre(/^find/, function(next){
 userSchema.pre('save', async function(next) {
 	//only run if password was modified 
 	if(!this.isModified('password')) return next();
-
 	//hashing with cost of 12
 	this.password = await bcrypt.hash(this.password, 12);
-
-	
-
-	// If no passwordChangeAt provided, use the current time
-	// if (!this.passwordChangeAt) {
-    // this.passwordChangeAt = Date.now(); 
-  	// }
-  	
   	//delete passwordConfirm field
 	this.passwordConfirm = undefined;
-
+	console.log('After removing passwordConfirm:', this); // Убедитесь, что passwordConfirm удалено
 
 	next();
 });
