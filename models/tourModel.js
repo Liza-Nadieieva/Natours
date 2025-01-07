@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const slugify = require('slugify');
+const User = require('./userModel');
 // const validator = require('validator');
 
 const tourSchema = new mongoose.Schema({
@@ -76,14 +77,43 @@ const tourSchema = new mongoose.Schema({
 	secretTour: {
 		type: Boolean,
 		default: false,
-	}
+		},
+		startLocation: {
+			//GeoJSON
+			type: {
+				type: String,
+				default: 'Point',
+				enum: ['Point']
+			},
+			coordinates: [Number],
+			address: String,
+			description: String
+		},
+		locations: [
+			{
+				type: {
+					type: String,
+					default: 'Point',
+					enum: ['Point']
+				},
+				coordinates: [Number],
+				address: String,
+				description: String,
+				day: Number
+			}
+		],
+		guides: Array,
 	},
 	{
 		toJSON: { virtuals: true },
 		toObject: { virtuals: true },
 	}
 );
-
+tourSchema.pre('save', async function(next){
+	const guidesPromises = this.guides.map(async el => await  User.findById(el));
+	this.guides = await Promise.all(guidesPromises);
+	next()
+});
 tourSchema.virtual('durationWeeks').get(function() {
 	return this.duration / 7;
 });
