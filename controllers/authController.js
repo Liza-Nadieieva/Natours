@@ -8,7 +8,7 @@ const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
 
 const MAX_ATTEMPTS = 5; // Maximum number of login attempts allowed
-const LOCK_TIME = 15 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
+const LOCK_TIME = 2 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
   
 
 const signToken = id => {
@@ -142,13 +142,15 @@ exports.login = catchAsync(async (req, res, next) => {
     // Check if loginAttempts exceeded MAX_ATTEMPTS
     if (updatedUser.loginAttempts >= MAX_ATTEMPTS) {
       updatedUser.lockUntil = Date.now() + LOCK_TIME; // Lock the account
+			const lockUntilDate = new Date(updatedUser.lockUntil);
      // Save with validate: false to avoid triggering the passwordConfirm validation
 		 await User.findOneAndUpdate(
 			{ email },
 			{ lockUntil: updatedUser.lockUntil },
 			{ new: true, validate: false } 
 		); 
-      console.log('Account is locked:', updatedUser.lockUntil);
+      console.log('Account is locked:', lockUntilDate);
+			
       return next(
         new AppError(
           `Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
@@ -156,9 +158,19 @@ exports.login = catchAsync(async (req, res, next) => {
         )
       );
     }
+		if(updatedUser.lockUntil && updatedUser.lockUntil > Date.now()){
+			const remainingLockTime = Math.ceil((updatedUser.lockUntil - Date.now()) / 1000); // Remaining time in seconds
+			return next(
+				new AppError(
+					`Account is locked. Try again in ${remainingLockTime} seconds.`,
+					403
+				)
+			);
+		}
 		console.log('After update: userAttempts', updatedUser.loginAttempts);
 	  return next(new AppError('Incorrect email or password', 401));
 	}
+	
 	// Reset loginAttempts and lockUntil on successful login
 	await User.findOneAndUpdate(
 		{ email }, // Find the user by email
@@ -181,6 +193,9 @@ exports.login = catchAsync(async (req, res, next) => {
             message: '2FA required. Please verify using your authenticator app.',
             tempToken, // Send this tempToken for the user to verify 2FA
     	});
+	}
+	if(user.lockUntil !== 0){
+	  return next(new AppError('account is locked', 403));
 	}
 	// 4) If everything ok, send token to client
 	createSendToken(user, 200, res);
