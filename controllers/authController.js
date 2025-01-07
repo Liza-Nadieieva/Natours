@@ -8,7 +8,7 @@ const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
 
 const MAX_ATTEMPTS = 5; // Maximum number of login attempts allowed
-const LOCK_TIME = 2 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
+const LOCK_TIME = 15 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
   
 
 const signToken = id => {
