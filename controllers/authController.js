@@ -127,49 +127,49 @@ exports.login = catchAsync(async (req, res, next) => {
 	// 2) Check if user exists && password is correct
 	const user = await User.findOne({ email }).select('+password');
   
-	if (!user || !(await user.correctPassword(password, user.password))) {
-		console.log('Before update: userAttempts', user.loginAttempts);
+	// if (!user || !(await user.correctPassword(password, user.password))) {
+	// 	console.log('Before update: userAttempts', user.loginAttempts);
 
     // Increment loginAttempts using findOneAndUpdate
-    const updatedUser = await User.findOneAndUpdate(
-      { email },
-      {
-        $inc: { loginAttempts: 1 }, // Increment loginAttempts
-      },
-      { new: true } // Return the updated user
-    );
+    // const updatedUser = await User.findOneAndUpdate(
+    //   { email },
+    //   {
+    //     $inc: { loginAttempts: 1 }, // Increment loginAttempts
+    //   },
+    //   { new: true } // Return the updated user
+    // );
 
     // Check if loginAttempts exceeded MAX_ATTEMPTS
-    if (updatedUser.loginAttempts >= MAX_ATTEMPTS) {
-      updatedUser.lockUntil = Date.now() + LOCK_TIME; // Lock the account
-			const lockUntilDate = new Date(updatedUser.lockUntil);
-     // Save with validate: false to avoid triggering the passwordConfirm validation
-		 await User.findOneAndUpdate(
-			{ email },
-			{ lockUntil: updatedUser.lockUntil },
-			{ new: true, validate: false } 
-		); 
-      console.log('Account is locked:', lockUntilDate);
+    // if (updatedUser.loginAttempts >= MAX_ATTEMPTS) {
+    // //   updatedUser.lockUntil = Date.now() + LOCK_TIME; // Lock the account
+	// 		const lockUntilDate = new Date(updatedUser.lockUntil);
+    //  // Save with validate: false to avoid triggering the passwordConfirm validation
+	// 	 await User.findOneAndUpdate(
+	// 		{ email },
+	// 		{ lockUntil: updatedUser.lockUntil },
+	// 		{ new: true, validate: false } 
+	// 	); 
+    //   console.log('Account is locked:', lockUntilDate);
 			
-      return next(
-        new AppError(
-          `Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
-          403
-        )
-      );
-    }
-		if(updatedUser.lockUntil && updatedUser.lockUntil > Date.now()){
-			const remainingLockTime = Math.ceil((updatedUser.lockUntil - Date.now()) / 1000); // Remaining time in seconds
-			return next(
-				new AppError(
-					`Account is locked. Try again in ${remainingLockTime} seconds.`,
-					403
-				)
-			);
-		}
-		console.log('After update: userAttempts', updatedUser.loginAttempts);
-	  return next(new AppError('Incorrect email or password', 401));
-	}
+    //   return next(
+    //     new AppError(
+    //       `Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
+    //       403
+    //     )
+    //   );
+    // }
+	// 	if(updatedUser.lockUntil && updatedUser.lockUntil > Date.now()){
+	// 		const remainingLockTime = Math.ceil((updatedUser.lockUntil - Date.now()) / 1000); // Remaining time in seconds
+	// 		return next(
+	// 			new AppError(
+	// 				`Account is locked. Try again in ${remainingLockTime} seconds.`,
+	// 				403
+	// 			)
+	// 		);
+	// 	}
+	// 	console.log('After update: userAttempts', updatedUser.loginAttempts);
+	//   return next(new AppError('Incorrect email or password', 401));
+	// }
 	
 	// Reset loginAttempts and lockUntil on successful login
 	await User.findOneAndUpdate(
@@ -194,9 +194,9 @@ exports.login = catchAsync(async (req, res, next) => {
             tempToken, // Send this tempToken for the user to verify 2FA
     	});
 	}
-	if(user.lockUntil !== 0){
-	  return next(new AppError('account is locked', 403));
-	}
+	// if(user.lockUntil !== 0){
+	//   return next(new AppError('account is locked', 403));
+	// }
 	// 4) If everything ok, send token to client
 	createSendToken(user, 200, res);
 });
