@@ -7,9 +7,44 @@ const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
 
-const MAX_ATTEMPTS = 5; // Maximum number of login attempts allowed
-const LOCK_TIME = 15 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
-  
+const LOCK_TIME = 1 * 60 * 1000; // Lock duration in milliseconds (15 minutes)
+
+const resetLoginAttempts = async (email) => {
+	return await User.findOneAndUpdate(
+	  { email },
+	  { loginAttempts: 0, lockUntil: 0 }, 
+	  { new: true }
+	);
+};
+
+const handleMaximumAttempts = async(email) => {
+	const MAX_ATTEMPTS = 3;
+
+	const user = await User.findOneAndUpdate(
+		{ email },
+		{
+			$inc: { loginAttempts: 1 }, // Increment loginAttempts
+		},
+		{ new: true } // Return the updated user
+	);
+
+	if(user.loginAttempts >= MAX_ATTEMPTS) {
+		const lockUntilDate = new Date(Date.now() + LOCK_TIME);
+	 	// Save with validate: false to avoid triggering the passwordConfirm validation
+		await User.findOneAndUpdate(
+			{ email },
+			{ lockUntil: lockUntilDate },
+			{ new: true, validate: false } 
+		); 
+		console.log('Account is locked:', lockUntilDate);
+		if (user.lockUntil && Date.now() >= user.lockUntil) {
+			await resetLoginAttempts(email);
+			return { isLocked: false };
+		}
+		return { isLocked: true, lockUntilDate }
+	}
+	return {isLocked: false};
+};
 
 const signToken = id => {
 	return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -126,59 +161,44 @@ exports.login = catchAsync(async (req, res, next) => {
 	}
 	// 2) Check if user exists && password is correct
 	const user = await User.findOne({ email }).select('+password');
-  
-	// if (!user || !(await user.correctPassword(password, user.password))) {
-	// 	console.log('Before update: userAttempts', user.loginAttempts);
 
-    // Increment loginAttempts using findOneAndUpdate
-    // const updatedUser = await User.findOneAndUpdate(
-    //   { email },
-    //   {
-    //     $inc: { loginAttempts: 1 }, // Increment loginAttempts
-    //   },
-    //   { new: true } // Return the updated user
-    // );
+	if (!user || !(await user.correctPassword(password, user.password))) {
+		const {isLocked, lockUntilDate } = await handleMaximumAttempts(email);
+		if (isLocked) {
+			return next(new AppError(`Your account is locked until ${lockUntilDate}`, 403));
+		}
 
-    // Check if loginAttempts exceeded MAX_ATTEMPTS
-    // if (updatedUser.loginAttempts >= MAX_ATTEMPTS) {
-    // //   updatedUser.lockUntil = Date.now() + LOCK_TIME; // Lock the account
-	// 		const lockUntilDate = new Date(updatedUser.lockUntil);
-    //  // Save with validate: false to avoid triggering the passwordConfirm validation
-	// 	 await User.findOneAndUpdate(
-	// 		{ email },
-	// 		{ lockUntil: updatedUser.lockUntil },
-	// 		{ new: true, validate: false } 
-	// 	); 
-    //   console.log('Account is locked:', lockUntilDate);
+		// await User.findOneAndUpdate(
+		// 	{ email },
+		// 	{
+		// 		$inc: { loginAttempts: 1 }, // Increment loginAttempts
+		// 	},
+		// 	{ new: true } // Return the updated user
+		// );
+		// if(user.loginAttempts >= MAX_ATTEMPTS) {
+		// 	const lockUntilDate = new Date(Date.now() + LOCK_TIME);
+     	// // Save with validate: false to avoid triggering the passwordConfirm validation
+		// 	await User.findOneAndUpdate(
+		// 		{ email },
+		// 		{ lockUntil: lockUntilDate },
+		// 		{ new: true, validate: false } 
+		// 	); 
+      	// 	console.log('Account is locked:', lockUntilDate);
 			
-    //   return next(
-    //     new AppError(
-    //       `Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
-    //       403
-    //     )
-    //   );
-    // }
-	// 	if(updatedUser.lockUntil && updatedUser.lockUntil > Date.now()){
-	// 		const remainingLockTime = Math.ceil((updatedUser.lockUntil - Date.now()) / 1000); // Remaining time in seconds
-	// 		return next(
-	// 			new AppError(
-	// 				`Account is locked. Try again in ${remainingLockTime} seconds.`,
-	// 				403
-	// 			)
-	// 		);
-	// 	}
-	// 	console.log('After update: userAttempts', updatedUser.loginAttempts);
-	//   return next(new AppError('Incorrect email or password', 401));
-	// }
+			// return next(
+			// 	new AppError(
+			// 	`Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
+			// 	403
+			// 	)
+			// );
+		// }
+
+		return next(new AppError('Incorrect email or password', 401));
+	}
 	
 	// Reset loginAttempts and lockUntil on successful login
-	await User.findOneAndUpdate(
-		{ email }, // Find the user by email
-		{
-			$set: { loginAttempts: 0, lockUntil: undefined }, // Reset loginAttempts and lockUntil
-		},
-		{ new: true, validate: false } // Skip validation while updating
-	);
+	await resetLoginAttempts(email);
+	
 	//3) If 2FA is enabled, issue a temporary token for 2FA verification
 	if (user.twoFactorEnabled) {
         // 3A) Issue a temporary JWT (short-lived) for 2FA verification
@@ -194,9 +214,10 @@ exports.login = catchAsync(async (req, res, next) => {
             tempToken, // Send this tempToken for the user to verify 2FA
     	});
 	}
-	// if(user.lockUntil !== 0){
-	//   return next(new AppError('account is locked', 403));
-	// }
+	console.log(user.lockUntil)
+	if(user.lockUntil !== 0){
+	  return next(new AppError('account is locked', 403));
+	}
 	// 4) If everything ok, send token to client
 	createSendToken(user, 200, res);
 });
