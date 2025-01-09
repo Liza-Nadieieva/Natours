@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
 		select: false //never show in output
 	},
 	loginAttempts: { type: Number, default: 0 },
-  	lockUntil: { type: Number }, // Timestamp for lockout duration
+  	lockUntil: { type: Number, default: 0 }, // Timestamp for lockout duration
 	passwordConfirm: {
 		type: String,
 		required: [true, 'Please confirm your password'],
