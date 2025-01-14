@@ -107,7 +107,7 @@ const tourSchema = new mongoose.Schema({
 				type: mongoose.Schema.ObjectId,
 				ref: 'User'
 			}		
-		],
+		]
 	},
 	{
 		toJSON: { virtuals: true },
@@ -122,6 +122,13 @@ tourSchema.pre('save', async function(next){
 tourSchema.virtual('durationWeeks').get(function() {
 	return this.duration / 7;
 });
+//virtual populate
+tourSchema.virtual('reviews', {
+	ref: 'Review',
+	foreignField: 'tour', // in review  Schema
+	localField: '_id'
+});
+
 //document middleware (hooks) : runs before .save and .create
 tourSchema.pre('save', function(next) {  
 	this.slug = slugify(this.name, { lowe: true });
