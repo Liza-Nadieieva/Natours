@@ -10,6 +10,9 @@ const { getAllTours,
 		getMonthlyPlan
 	} = require('../controllers/tourController');
 const authController = require('./../controllers/authController');
+const reviewRouter = require('./../routes/reviewRoutes');
+
+
 const router = express.Router(); //middleware
 
 //Middleware function
@@ -23,6 +26,10 @@ router.route('/top-5-cheap').get(aliasTopTours, getAllTours);
 router.route('/tour-stats').get(getTourStats);
 router.route('/monthly-plan/:year').get(getMonthlyPlan);
 
+// router
+// 	.route('/:tourId/reviews')
+// 	.post(authController.protect, authController.restrictTo('user'), reviewController.createReview)
+router.use('/:tourId/reviews', reviewRouter);
 router
 	.route('/')
 	.get(authController.protect, getAllTours)
