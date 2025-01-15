@@ -24,7 +24,7 @@ const router = express.Router(); //middleware
 //add it to the post handler stack
 router.route('/top-5-cheap').get(aliasTopTours, getAllTours);
 router.route('/tour-stats').get(getTourStats);
-router.route('/monthly-plan/:year').get(getMonthlyPlan);
+router.route('/monthly-plan/:year').get(authController.protect, authController.restrictTo('admin', 'lead-guide', 'guide'), getMonthlyPlan);
 
 // router
 // 	.route('/:tourId/reviews')
@@ -32,13 +32,13 @@ router.route('/monthly-plan/:year').get(getMonthlyPlan);
 router.use('/:tourId/reviews', reviewRouter);
 router
 	.route('/')
-	.get(authController.protect, getAllTours)
-	.post(createTour); //add here before add tour 
+	.get(getAllTours)
+	.post(authController.protect, authController.restrictTo('admin', 'lead-guide'), createTour); //add here before add tour 
 
 router
 	.route('/:id') //param
 	.get(getTour)
-	.patch(updateTour)
+	.patch(authController.protect, authController.restrictTo('admin', 'lead-guide'), updateTour)
 	.delete(authController.protect, authController.restrictTo('admin', 'lead-guide'), deleteTour);
 
 module.exports = router;

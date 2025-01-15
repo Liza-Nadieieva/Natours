@@ -2,11 +2,16 @@ const express = require('express');
 const userController = require('../controllers/userController');
 const authController = require('../controllers/authController');
 
+
 const router = express.Router(); //middleware
 
-router.patch('/updateMe', authController.protect, userController.updateCurrentUser);
-router.delete('/deleteMe', authController.protect, userController.deleteCurrentUser);
+router.use(authController.protect); //will protect all routers 
 
+router.get('/me', userController.getMe, userController.getUser);
+router.patch('/updateMe', userController.updateCurrentUser);
+router.delete('/deleteMe', userController.deleteCurrentUser);
+
+router.use(authController.restrictTo('admin'));
 
 router
 	.route('/')
