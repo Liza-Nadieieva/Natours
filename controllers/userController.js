@@ -1,13 +1,13 @@
-const fs = require('fs');
 const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const AppError = require('../utils/appError');
 const factory = require('./handleFactory');
 
 
-const users = JSON.parse(
-	fs.readFileSync(`${__dirname}/../dev-data/data/users.json`)
-);
+// const users = JSON.parse(
+// 	fs.readFileSync(`${__dirname}/../dev-data/data/users.json`)
+// );
+
 const filterObj = (obj, ...allowedFields) => {
 	const newObj = {};
 	Object.keys(obj).forEach(el => {
@@ -15,7 +15,10 @@ const filterObj = (obj, ...allowedFields) => {
 	});
 	return newObj;
 };
-
+exports.getMe = (req, res, next) => {
+	req.params.id = req.user.id
+	next();
+}
 exports.updateCurrentUser = catchAsync(async (req, res, next) => {
 	// create error if user post password data
 	if(req.body. password || req.body.passwordConfirm){
