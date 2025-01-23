@@ -7,7 +7,9 @@ const { getAllTours,
 		checkId,
 		aliasTopTours,
 		getTourStats,
-		getMonthlyPlan
+		getMonthlyPlan,
+		getToursWithin,
+		getDistances
 	} = require('../controllers/tourController');
 const authController = require('./../controllers/authController');
 const reviewRouter = require('./../routes/reviewRoutes');
@@ -30,6 +32,10 @@ router.route('/monthly-plan/:year').get(authController.protect, authController.r
 // 	.route('/:tourId/reviews')
 // 	.post(authController.protect, authController.restrictTo('user'), reviewController.createReview)
 router.use('/:tourId/reviews', reviewRouter);
+
+router.route('/tours-within/:distance/center/:latlng/unit/:unit').get(getToursWithin); //coordinates of the place where you are
+router.route('/distances/:latlng/unit/:unit').get(getDistances);
+
 router
 	.route('/')
 	.get(getAllTours)
