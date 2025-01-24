@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
@@ -12,11 +13,13 @@ const userRouter = require('./routes/userRoutes');
 const authRouter = require('./routes/authRoutes');
 const reviewRouter = require('./routes/reviewRoutes');
 
-
-
 const app = express();
+app.set('view engine', 'pug');
+app.set('views', path.join(__dirname, 'views'));
 
 //1) GLOBAL middlewares
+//serving static files
+app.use(express.static(path.join(__dirname, 'public')));
 //set secutity HTTP headers
 app.use(helmet());
 
@@ -33,8 +36,6 @@ const limiter = rateLimit({
 });
 
 app.use('/api', limiter);
-
-
 
 //morgan will return function similar to use 
 //it show information on the console about the request we did
@@ -62,9 +63,6 @@ app.use(
 	})
 );
 
-//serving static files
-app.use(express.static(`${__dirname}/public`));
-
 //test middleware
 app.use((req, res, next) => {
 	console.log('hello from the middleware');
@@ -77,12 +75,28 @@ app.use((req, res, next) => {
 })
 
 // 3) ROUTES
+app.get('/', (req, res) => {
+	res.status(200).render('base');
+});
+
+app.get('/overview', (req, res) => {
+	res.status(200).render('overview', {
+		title: 'All Tours'
+	});
+})
+
+app.get('/tour', (req, res) => {
+	res.status(200).render('tour', {
+		title: 'The Forest Hiker Tour'
+	});
+})
+
+
 
 app.use('/api/v1/tours', tourRouter); //tourRouter is a middleware as userRouter
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/reviews', reviewRouter);
-
 
 // all() all http requests
 
@@ -98,6 +112,3 @@ app.all('*', (req, res, next) => {
 app.use(globalErrorHandler);
 
 module.exports = app;
-
-
-
