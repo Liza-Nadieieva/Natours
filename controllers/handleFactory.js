@@ -49,8 +49,10 @@ exports.createOne = Model => catchAsync(async (req, res, next) => {
 	
 exports.getOne = (Model, popOptions) => catchAsync(async (req, res, next) => {
     let query = Model.findById(req.params.id);
+
     if(popOptions) query = query.populate(popOptions);
     const doc = await query;
+	console.log(doc)
 	if (!doc) {
 		return next(new AppError('document not found', 404))
 	}
@@ -73,7 +75,8 @@ exports.getAll = Model => catchAsync(async ( req, res, next) => {
 		.limitFields()
 		.paginate();
 
-	const doc = await features.query.explain();
+	// const doc = await features.query.explain();
+	const doc = await features.query;
 	//SEND RESPONSE
 	res.status(200).json({
 		status: 'success',
