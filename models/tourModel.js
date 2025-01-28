@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const slugify = require('slugify');
-const User = require('./userModel');
+// const User = require('./userModel');
 // const validator = require('validator');
 
 const tourSchema = new mongoose.Schema({
@@ -123,11 +123,11 @@ tourSchema.index({startLocation: '2dsphere'});
 
 
 
-tourSchema.pre('save', async function(next){
-	const guidesPromises = this.guides.map(async el => await  User.findById(el));
-	this.guides = await Promise.all(guidesPromises);
-	next()
-});
+// tourSchema.pre('save', async function(next){
+// 	const guidesPromises = this.guides.map(async el => await  User.findById(el));
+// 	this.guides = await Promise.all(guidesPromises);
+// 	next()
+// });
 tourSchema.virtual('durationWeeks').get(function() {
 	return this.duration / 7;
 });
@@ -154,10 +154,11 @@ tourSchema.pre('save', function(next) {
 tourSchema.pre(/^find/, function(next) {
 	this.populate({
 		path: 'guides',
-		select: '-__v -passwordChangedAt -loginAttempts -twoFactorEnabled -totpSecret'
+		select: '-__v -passwordChangedAt'
 	});
+	
 	next();
-})
+});
 
 tourSchema.pre(/^find/, function(next) {
 	//this query 
