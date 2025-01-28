@@ -3,5 +3,7 @@ node_modules/
 config.env
 *.env
 dist/
+mapbox.js
+
 
 
