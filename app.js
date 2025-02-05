@@ -19,14 +19,6 @@ const app = express();
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 
-// app.use((req, res, next) => {
-// 	res.setHeader(
-// 	  'Content-Security-Policy',
-// 	//   "default-src 'self'; script-src 'self' https://api.mapbox.com; style-src 'self' https://api.mapbox.com; img-src 'self' data: https://api.mapbox.com; font-src 'self';"
-// 	);
-// 	next();
-// });
-
 //1) GLOBAL middlewares
 //serving static files
 app.use(express.static(path.join(__dirname, 'public')));
