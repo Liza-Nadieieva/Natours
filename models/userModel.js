@@ -68,6 +68,13 @@ userSchema.pre(/^find/, function(next){
 	next();
 });
 
+userSchema.pre('save', function(next) {
+	if (!this.loginAttempts) {
+	  this.loginAttempts = 0;  
+	}
+	next();
+  });
+
 userSchema.pre('save', async function(next) {
 	//only run if password was modified 
 	if(!this.isModified('password')) return next();
@@ -89,6 +96,8 @@ userSchema.pre('save', async function(next) {
 
 
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
+	console.log('Candidate password:', candidatePassword);
+	console.log('User password (hashed):', userPassword);
 	return await  bcrypt.compare(candidatePassword, userPassword);
 };
 
@@ -126,6 +135,26 @@ userSchema.methods.createPasswordResetToken = function() {
 
 	return resetToken;
 };
+
+// const updateAllPasswords = async () => {
+// 	try {
+// 	  // new password
+// 	  const newPassword = '*****'; 
+  
+// 	  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  
+// 	  const result = await User.updateMany(
+// 		{},
+// 		{ $set: { password: hashedPassword } }
+// 	  );
+  
+// 	  console.log('alldone', result);
+// 	} catch (error) {
+// 	  console.error('errors', error);
+// 	}
+//   };
+  
+//   updateAllPasswords();
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;
