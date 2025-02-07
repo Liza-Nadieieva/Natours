@@ -63,7 +63,7 @@ block content
       .picture-box
         img.picture-box__img(src=`/img/tours/${img}`, alt=`The Park Camper Tour ${i + 1}`, class=`picture-box__img--${i + 1}`)
   section.section-map
-    #map(style="height: 500px; width: 100%" data-locations= `${JSON.stringify(tour.locations)}`)
+    #map(style="height: 100%; width: 100%" data-locations= `${JSON.stringify(tour.locations)}`)
   section.section-reviews
     .reviews
       each review in tour.reviews

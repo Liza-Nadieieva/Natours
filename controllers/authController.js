@@ -154,6 +154,10 @@ exports.signup = catchAsync(async (req, res, next) => {
 
 exports.login = catchAsync(async (req, res, next) => {
 	const { email, password } = req.body;
+
+	console.log('Incoming email:', email);
+  	console.log('Incoming password:', password);
+
   
 	// 1) Check if email and password exist
 	if (!email || !password) {
@@ -162,41 +166,19 @@ exports.login = catchAsync(async (req, res, next) => {
 	// 2) Check if user exists && password is correct
 	const user = await User.findOne({ email }).select('+password');
 
+	console.log('User found:', user);
+	const isPasswordCorrect = await user.correctPassword(password, user.password);
+	console.log('Password match:', isPasswordCorrect);
 	if (!user || !(await user.correctPassword(password, user.password))) {
 		const {isLocked, lockUntilDate } = await handleMaximumAttempts(email);
 		if (isLocked) {
 			return next(new AppError(`Your account is locked until ${lockUntilDate}`, 403));
 		}
-
-		// await User.findOneAndUpdate(
-		// 	{ email },
-		// 	{
-		// 		$inc: { loginAttempts: 1 }, // Increment loginAttempts
-		// 	},
-		// 	{ new: true } // Return the updated user
-		// );
-		// if(user.loginAttempts >= MAX_ATTEMPTS) {
-		// 	const lockUntilDate = new Date(Date.now() + LOCK_TIME);
-     	// // Save with validate: false to avoid triggering the passwordConfirm validation
-		// 	await User.findOneAndUpdate(
-		// 		{ email },
-		// 		{ lockUntil: lockUntilDate },
-		// 		{ new: true, validate: false } 
-		// 	); 
-      	// 	console.log('Account is locked:', lockUntilDate);
-			
-			// return next(
-			// 	new AppError(
-			// 	`Maximum login attempts exceeded. Account is locked for ${LOCK_TIME / (60 * 1000)} minutes.`,
-			// 	403
-			// 	)
-			// );
-		// }
-
 		return next(new AppError('Incorrect email or password', 401));
 	}
 	
 	// Reset loginAttempts and lockUntil on successful login
+
 	await resetLoginAttempts(email);
 	
 	//3) If 2FA is enabled, issue a temporary token for 2FA verification
